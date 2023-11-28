@@ -132,7 +132,8 @@
               (println (cheshire/generate-string enriched)))
             (if (not= operation "terminate")
               (recur (.readLine input-reader))))
-          (recur (.readLine input-reader)))))))
+          (recur (.readLine input-reader))))))
+  (.close input-reader))
 
 
 
