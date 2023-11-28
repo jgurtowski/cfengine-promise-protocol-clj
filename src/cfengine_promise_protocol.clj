@@ -68,10 +68,6 @@
   (conj (select-keys cfe-input carry-foward-attr-keys)
         module-output))
 
-(defn enrich-stringify [cfe-input]
-  (comp cheshire/generate-string (partial enrich-output cfe-input)))
-
-
 (defn op-dispatch-fn [ctx {operation :operation}] operation) ;;allow repl reloading
 (defmulti handle-operation #'op-dispatch-fn)
 
@@ -80,34 +76,27 @@
                                       {header-line :header-line}]
   (if-not (string/ends-with? header-line "v1")
     (throw (Exception. "This library only supports v1 of the cfengine custom promise protocol")))
-  (str module-name " " version-number " v1 json_based"))
+  {:header-line (str module-name " " version-number " v1 json_based")})
 
 (defmethod handle-operation "validate_promise" [{promiser-spec ::promiser-spec
                                                  promise-attrs-spec ::promise-attrs-spec}
                                                 {promiser :promiser
-                                                 attributes :attributes
-                                                 :as cfe-input}]
+                                                 attributes :attributes}]
   (let [explain-promiser (spec/explain-str promiser-spec promiser)
-        explain-attributes (spec/explain-str promise-attrs-spec attributes)
-        invalid-promise (comp (enrich-stringify cfe-input) promise-invalid)
-        valid-promise (comp (enrich-stringify cfe-input) promise-valid)
-        ]
+        explain-attributes (spec/explain-str promise-attrs-spec attributes)]
     (if (not (string/starts-with? explain-promiser "Success"))
-      (invalid-promise explain-promiser)
+      (promise-invalid explain-promiser)
       (if (not (string/starts-with? explain-attributes "Success"))
-        (invalid-promise explain-attributes)
-        (valid-promise "Promise validated Successfully")))))
+        (promise-invalid explain-attributes)
+        (promise-valid "Promise validated Successfully")))))
 
 (defmethod handle-operation "evaluate_promise" [{evaluation-fn ::evaluation-fn}
                                                 {promiser :promiser
-                                                 attributes :attributes
-                                                 :as cfe-input}]
-  ((enrich-stringify cfe-input)
-   (evaluation-fn promiser attributes)))
+                                                 attributes :attributes}]
+  (evaluation-fn promiser attributes))
         
-(defmethod handle-operation "terminate" [{module-name ::module-name} cfe-input]
-  ((enrich-stringify cfe-input)
-   (promise-success (str module-name " completed successfully"))))
+(defmethod handle-operation "terminate" [{module-name ::module-name} _ ]
+  (promise-success (str module-name " completed successfully")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Entry Point
@@ -123,16 +112,28 @@
    version-number (string) : a version number for the module
    promiser-spec (spec) : a clojure spec that verifies the promiser input
    promise-attrs-spec (spec) : a clojure spec that verifies the promise attributes
-   evaluation-fn (fn) : A function that evaluates the promise, triggered by the 'evaluate_operation' operation
+   evaluation-fn (fn) : A function that evaluates the promise, triggered by the 'evaluate_operation' operation, it should use a helper return function i.e. 'promise-success' etc
   "
   (let [ctx {::module-name module-name
              ::version-number version-number
              ::promiser-spec promiser-spec
              ::promise-attrs-spec promise-attrs-spec
              ::evaluation-fn evaluation-fn}
-        op-handler (partial handle-operation ctx)
-        dispatch-op (comp op-handler parse-raw-line)]
-    (doseq [line (line-seq input-reader)]
-      (if (not (= line ""))
-        (println (dispatch-op line))))))
+        op-handler (partial handle-operation ctx)]
+    (loop [line (.readLine input-reader)]
+      (if line
+        (if (not= line "")
+          (let [cfe-input (parse-raw-line line)
+                op-output (op-handler cfe-input)
+                enriched (enrich-output cfe-input op-output)
+                operation (:operation enriched)]
+            (if (= operation ::header)
+              (println (:header-line enriched))
+              (println (cheshire/generate-string enriched)))
+            (if (not= operation "terminate")
+              (recur (.readLine input-reader))))
+          (recur (.readLine input-reader)))))))
 
+
+
+<
