@@ -33,11 +33,6 @@
 (create-promise "invalid" "error")
 (create-promise "success" "info")
 
-(defn create-output [output & [output-type]]
-  (conj {::output output}
-        (if (= ::header output-type)
-            {::output-type ::header}
-            {::output-type ::operation})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;Parse raw input lines (strings)
@@ -135,6 +130,3 @@
           (recur (.readLine input-reader))))))
   (.close input-reader))
 
-
-
-<
