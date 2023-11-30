@@ -123,8 +123,8 @@
                 enriched (enrich-output cfe-input op-output)
                 operation (:operation enriched)]
             (if (= operation ::header)
-              (println (:header-line enriched))
-              (println (cheshire/generate-string enriched)))
+              (println (:header-line enriched) "\n")
+              (println (cheshire/generate-string enriched) "\n"))
             (if (not= operation "terminate")
               (recur (.readLine input-reader))))
           (recur (.readLine input-reader))))))
