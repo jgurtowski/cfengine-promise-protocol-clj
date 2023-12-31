@@ -1,4 +1,4 @@
-(ns cfengine-promise-protocol
+(ns pulsar.cfengine.cfengine-promise-protocol
   (:require [cheshire.core :as cheshire]
             [clojure.spec.alpha :as spec]
             [clojure.string :as string]))
